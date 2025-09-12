@@ -4,3 +4,5 @@ node_modules
 # Env
 .DS_Store
 package-lock.json
+bun.lockb
+bun.lock

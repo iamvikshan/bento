@@ -1,9 +1,13 @@
-name: GitLab Sync
+name: Sync to GitLab
 on:
   push:
-    branches: ["*"]
+    branches: [main]
   pull_request:
-    types: [opened, closed, reopened, edited, labeled, unlabeled]
+    types: [opened, closed, reopened]
+  issues:
+    types: [opened, closed, reopened]
+  release:
+    types: [published]
   schedule:
     - cron: "0 */6 * * *"
   workflow_dispatch:
@@ -11,208 +15,17 @@ on:
 jobs:
   sync:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+
     steps:
-      - name: Install GitLab CLI (glab)
-        run: |
-          curl -sSL "https://raw.githubusercontent.com/upciti/wakemeops/main/assets/install_repository" | sudo bash
-          sudo apt install glab
-          if ! glab --version; then
-            echo "Installation failed"
-            exit 1
-          fi
-
-      - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-          fetch-tags: false
-
-      - name: Set environment variables
-        run: |
-          echo "REPO_NAME=${GITHUB_REPOSITORY#*/}" >> $GITHUB_ENV
-          echo "GITLAB_PROJECT_PATH=vikshan/${GITHUB_REPOSITORY#*/}" >> $GITHUB_ENV
-
-      - name: Check and Create GitLab Repository
-        env:
-          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
-        run: |
-          # Check if repository exists
-          REPO_EXISTS=$(curl -s -H "PRIVATE-TOKEN: $GITLAB_TOKEN" \
-            "https://gitlab.com/api/v4/projects/vikshan%2F${REPO_NAME}" | jq -r '.id // empty')
-
-          if [ -z "$REPO_EXISTS" ]; then
-            echo "Repository doesn't exist. Creating..."
-            
-            # Create repository
-            curl -X POST -H "PRIVATE-TOKEN: $GITLAB_TOKEN" \
-              "https://gitlab.com/api/v4/projects" \
-              -d "name=${REPO_NAME}" \
-              -d "path=${REPO_NAME}" \
-              -d "namespace_id=$(curl -s -H "PRIVATE-TOKEN: $GITLAB_TOKEN" \
-                "https://gitlab.com/api/v4/namespaces?search=vikshan" | jq '.[0].id')" \
-              -d "visibility=public"
-            
-            echo "Repository created successfully"
-            sleep 5 # Wait for repository to be fully created
-          else
-            echo "Repository already exists"
-          fi
-
-      - name: Determine Default Branch
-        id: default-branch
-        run: |
-          DEFAULT_BRANCH=$(git remote show origin | grep 'HEAD branch' | cut -d' ' -f5)
-          echo "default_branch=$DEFAULT_BRANCH" >> $GITHUB_OUTPUT
-          echo "Current default branch: $DEFAULT_BRANCH"
-
-      - name: Update GitLab Default Branch
-        env:
-          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
-          DEFAULT_BRANCH: ${{ steps.default-branch.outputs.default_branch }}
-        run: |
-          # Get GitLab project ID
-          PROJECT_ID=$(curl -s --header "PRIVATE-TOKEN: $GITLAB_TOKEN" \
-            "https://gitlab.com/api/v4/projects/vikshan%2F${REPO_NAME}" | jq -r '.id')
-
-          # Update default branch
-          curl -X PUT -H "PRIVATE-TOKEN: $GITLAB_TOKEN" \
-            "https://gitlab.com/api/v4/projects/${PROJECT_ID}" \
-            -d "default_branch=${DEFAULT_BRANCH}"
+      - name: Checkout Repository
+        uses: actions/checkout@v5.0.0
 
       - name: Sync with GitLab
-        env:
+        uses: OpenSaucedHub/advanced-git-sync@v1.4.5
+        with:
           GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
-          DEFAULT_BRANCH: ${{ steps.default-branch.outputs.default_branch }}
-        run: |
-          # Setup GitLab remote
-          git remote add gitlab "https://oauth2:${GITLAB_TOKEN}@gitlab.com/${GITLAB_PROJECT_PATH}.git"
-
-          # Fetch from origin (your fork)
-          git fetch origin --no-tags || exit 1
-
-          # Fetch from GitLab
-          git fetch gitlab --no-tags || {
-            echo "Failed to fetch from GitLab"
-            exit 1
-          }
-
-          # Get clean branch lists (remove HEAD and empty lines)
-          GITHUB_BRANCHES=$(git branch -r | grep 'origin/' | sed 's#origin/##' | grep -v 'HEAD' | tr -d ' ' | sort)
-          GITLAB_BRANCHES=$(git branch -r | grep 'gitlab/' | sed 's#gitlab/##' | tr -d ' ' | sort)
-
-          # Debug output
-          echo "GitHub branches:"
-          echo "$GITHUB_BRANCHES"
-          echo "GitLab branches:"
-          echo "$GITLAB_BRANCHES"
-
-          # Sync branches to GitLab
-          git config --global user.name "vikshan"
-          git config --global user.email "iamvikshan@gmail.com"
-          echo "$GITHUB_BRANCHES" | while read branch; do
-            if [ -n "$branch" ]; then
-              echo "Syncing branch: $branch"
-              git checkout -B "${branch}" "origin/${branch}"
-              git push -f gitlab "${branch}:${branch}" -o ci.skip || {
-                echo "Failed to push branch ${branch}"
-                exit 1
-              }
-            fi
-          done
-
-          # Clean up deleted branches with careful comparison
-          echo "$GITLAB_BRANCHES" | while read gitlab_branch; do
-            if [ -n "$gitlab_branch" ] && [ "$gitlab_branch" != "$DEFAULT_BRANCH" ]; then
-              # Check if branch exists in GitHub branches using exact match
-              if ! echo "$GITHUB_BRANCHES" | grep -Fx "$gitlab_branch" > /dev/null; then
-                echo "Branch '$gitlab_branch' exists in GitLab but not in GitHub - verifying deletion"
-                
-                # Double check branch doesn't exist in origin
-                if ! git show-ref --verify --quiet "refs/remotes/origin/$gitlab_branch"; then
-                  echo "Confirmed: Branch '$gitlab_branch' should be deleted from GitLab"
-                  git push gitlab --delete "${gitlab_branch}" || {
-                    echo "Warning: Failed to delete branch ${gitlab_branch}"
-                  }
-                else
-                  echo "Safety check: Branch '$gitlab_branch' still exists in origin - skipping deletion"
-                fi
-              fi
-            fi
-          done
-
-      - name: Configure GitLab Auth
-        env:
-          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
-        run: |
-          # Configure glab authentication
-          glab auth login --token "$GITLAB_TOKEN"
-
-      - name: Sync Pull Requests
-        if: github.event_name == 'push' || github.event_name == 'pull_request'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
-          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
-        run: |
-          # Get GitLab project ID
-          PROJECT_ID=$(curl -s -H "PRIVATE-TOKEN: $GITLAB_TOKEN" \
-            "https://gitlab.com/api/v4/projects/vikshan%2F${REPO_NAME}" | jq -r '.id')
-
-          # Create and checkout temp branch
-          TEMP_BRANCH="temp-sync-$(date +%s)"
-          git checkout -b "$TEMP_BRANCH"
-
-          # Debug: Check glab version and auth status
-          glab auth status
-
-          # Function to get GitLab MR iid by title
-          get_gitlab_mr_iid() {
-            local title="$1"
-            curl -s -H "PRIVATE-TOKEN: $GITLAB_TOKEN" \
-              "https://gitlab.com/api/v4/projects/${PROJECT_ID}/merge_requests?search=${title}" | \
-              jq -r '.[0].iid // empty'
-          }
-
-          # Fetch all PRs from GitHub (both open and closed)
-          GITHUB_PRS=$(gh pr list --state all --json number,title,body,headRefName,baseRefName,headRepositoryOwner,state,mergedAt)
-
-          # Process each PR
-          echo "$GITHUB_PRS" | jq -c '.[]' | while read -r pr; do
-            PR_TITLE=$(echo "$pr" | jq -r '.title')
-            PR_DESC=$(echo "$pr" | jq -r '.body')
-            SOURCE_BRANCH=$(echo "$pr" | jq -r '.headRefName')
-            TARGET_BRANCH=$(echo "$pr" | jq -r '.baseRefName')
-            PR_STATE=$(echo "$pr" | jq -r '.state')
-            PR_MERGED_AT=$(echo "$pr" | jq -r '.mergedAt')
-            
-            echo "Processing PR: $PR_TITLE (${SOURCE_BRANCH} -> ${TARGET_BRANCH})"
-            
-            # Get corresponding GitLab MR
-            MR_IID=$(get_gitlab_mr_iid "$PR_TITLE")
-            
-            if [ -n "$MR_IID" ]; then
-              # MR exists, update its state
-              if [ "$PR_STATE" = "CLOSED" ]; then
-                if [ -n "$PR_MERGED_AT" ]; then
-                  echo "PR was merged, merging GitLab MR..."
-                  glab mr merge "$MR_IID" --when-pipeline-succeeds || echo "Warning: Failed to merge MR"
-                else
-                  echo "PR was closed without merging, closing GitLab MR..."
-                  curl -X PUT -H "PRIVATE-TOKEN: $GITLAB_TOKEN" \
-                    "https://gitlab.com/api/v4/projects/${PROJECT_ID}/merge_requests/${MR_IID}" \
-                    -d "state_event=close"
-                fi
-              fi
-            elif [ "$PR_STATE" = "OPEN" ]; then
-              # Create new MR only if PR is open
-              echo "Creating new MR for open PR..."
-              glab mr create \
-                --source-branch "${SOURCE_BRANCH}" \
-                --target-branch "${TARGET_BRANCH}" \
-                --title "${PR_TITLE}" \
-                --description "${PR_DESC}" \
-                --remove-source-branch || echo "Warning: Failed to create MR"
-            fi
-          done
-
-          # Cleanup: Switch back to original branch and delete temp branch
-          git checkout -
-          git branch -D "$TEMP_BRANCH"
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}

@@ -1,0 +1,6 @@
+gitlab:
+  enabled: true
+  owner: vikshan
+
+github:
+  enabled: true

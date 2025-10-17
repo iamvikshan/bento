@@ -34,9 +34,9 @@ app.get('/*', async ({ request }) => {
 
   // Avoid logging sensitive data from environment variables
   if (targetUrl === 'https://bento.me/' + process.env.BENTO_USERNAME) {
-    logger.info('Forwarding request to bento.me/<redacted>');
+    logger.info('Forwarding request to bento.me/<redacted>')
   } else {
-    logger.info({ targetUrl }, 'Forwarding request');
+    logger.info({ targetUrl }, 'Forwarding request')
   }
 
   try {

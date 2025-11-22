@@ -22,10 +22,10 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v6.0.0
 
       - name: Sync with GitLab
-        uses: OpenSaucedHub/advanced-git-sync@v1.4.8
+        uses: OpenSaucedHub/advanced-git-sync@v1.4.9
         with:
           GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
           GH_TOKEN: ${{ secrets.GH_TOKEN }}

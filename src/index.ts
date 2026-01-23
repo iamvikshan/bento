@@ -1,75 +1,126 @@
-// index.ts
 import { Elysia } from 'elysia'
 import { cors } from '@elysiajs/cors'
-import { logger } from './logger'
 
-const app = new Elysia().use(cors())
+const LINKTREE_HOST = 'https://linktr.ee'
+const LINKTREE_USERNAME = Bun.env.LINKTREE_USERNAME || 'vikshan'
 
-app.get('/*', async ({ request }) => {
-  let someHost = 'https://bento.me'
-  const url = new URL(request.url)
-  const path = url.pathname + url.search
+// Simple logger using Bun's native console
+const log = {
+  info: (msg: string, data?: object) =>
+    console.log(`[INFO] ${msg}`, data ? JSON.stringify(data) : ''),
+  error: (msg: string, data?: object) =>
+    console.error(`[ERROR] ${msg}`, data ? JSON.stringify(data) : '')
+}
 
-  logger.info({ path }, 'Incoming request')
+// Rewrite HTML to fix relative URLs that would break through the proxy
+function rewriteHtml(html: string): string {
+  return (
+    html
+      // Fix the relative preconnect that breaks font loading
+      .replace(
+        /href="\/" crossorigin/g,
+        'href="https://linktr.ee/" crossorigin'
+      )
+  )
+  // Fix canonical URL to point to proxy (optional - comment out if you want original)
+  // .replace(/<link rel="canonical" href="https:\/\/linktr\.ee\/[^"]*"/, `<link rel="canonical" href="${Bun.env.CUSTOM_DOMAIN || 'https://linktr.ee'}"`)
+}
 
-  if (path === '/signup' || path === '/login') {
-    logger.info({ path }, 'Redirecting auth path')
-    return new Response(null, {
-      status: 307,
-      headers: {
-        Location: `https://bento.me${path}`
-      }
-    })
-  }
+const app = new Elysia()
+  .use(cors())
+  .get('/*', async ({ request }) => {
+    const url = new URL(request.url)
+    const path = url.pathname + url.search
 
-  if (path.includes('v1')) {
-    someHost = 'https://api.bento.me'
-    logger.debug('Using API host')
-  }
-
-  let targetUrl = someHost + path
-  if (targetUrl === 'https://bento.me/') {
-    targetUrl = 'https://bento.me/' + process.env.BENTO_USERNAME
-  }
-
-  // Avoid logging sensitive data from environment variables
-  if (targetUrl === 'https://bento.me/' + process.env.BENTO_USERNAME) {
-    logger.info('Forwarding request to bento.me/<redacted>')
-  } else {
-    logger.info({ targetUrl }, 'Forwarding request')
-  }
-
-  try {
-    const response = await fetch(targetUrl)
-    const contentType = response.headers.get('content-type') || 'text/plain'
-
-    let results = ''
-    if (contentType.includes('application/json')) {
-      results = JSON.stringify(await response.json())
-    } else {
-      results = await response.text()
+    // Redirect auth/admin paths to official Linktree
+    if (
+      path.startsWith('/admin') ||
+      path === '/login' ||
+      path === '/register'
+    ) {
+      log.info('Redirecting auth path', { path })
+      return Response.redirect(`${LINKTREE_HOST}${path}`, 307)
     }
 
-    logger.info(
-      {
-        status: response.status,
-        contentType
-      },
-      'Request completed'
-    )
+    // Build target URL - redirect root to user's profile
+    const targetUrl =
+      path === '/'
+        ? `${LINKTREE_HOST}/${LINKTREE_USERNAME}`
+        : `${LINKTREE_HOST}${path}`
 
-    return new Response(results, {
-      headers: {
-        'content-type': contentType
-      }
+    log.info('Proxying request', {
+      path,
+      target: path === '/' ? `${LINKTREE_HOST}/<redacted>` : targetUrl
     })
-  } catch (error) {
-    logger.error({ error }, 'Request failed')
-    throw error
-  }
-})
 
-const port = process.env.PORT || 3000
-logger.info({ port }, '🦊 Server started')
+    try {
+      const response = await fetch(targetUrl, {
+        headers: {
+          'User-Agent':
+            request.headers.get('user-agent') ||
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          Accept: request.headers.get('accept') || '*/*',
+          'Accept-Language':
+            request.headers.get('accept-language') || 'en-US,en;q=0.9',
+          'Accept-Encoding': 'identity', // Disable compression for easier HTML manipulation
+          Referer: 'https://linktr.ee/', // Pretend we're coming from Linktree
+          Origin: 'https://linktr.ee' // For CORS preflight
+        }
+      })
 
-export default app
+      // Handle 404s
+      if (response.status === 404) {
+        return new Response('Profile not found', { status: 404 })
+      }
+
+      const contentType = response.headers.get('content-type') || 'text/html'
+
+      // For HTML responses, rewrite problematic URLs
+      if (contentType.includes('text/html')) {
+        const html = await response.text()
+        const rewrittenHtml = rewriteHtml(html)
+
+        return new Response(rewrittenHtml, {
+          status: response.status,
+          headers: {
+            'content-type': contentType,
+            'cache-control':
+              response.headers.get('cache-control') || 'public, max-age=60',
+            // Pass through etag for caching
+            ...(response.headers.get('etag') && {
+              etag: response.headers.get('etag')!
+            })
+          }
+        })
+      }
+
+      // For non-HTML (CSS, JS, images, fonts, etc.), pass through with all relevant headers
+      const responseHeaders: Record<string, string> = {
+        'content-type': contentType,
+        'cache-control':
+          response.headers.get('cache-control') || 'public, max-age=3600'
+      }
+
+      // Pass through CORS headers for assets
+      const corsHeaders = [
+        'access-control-allow-origin',
+        'access-control-allow-methods',
+        'access-control-allow-headers'
+      ]
+      for (const header of corsHeaders) {
+        const value = response.headers.get(header)
+        if (value) responseHeaders[header] = value
+      }
+
+      return new Response(response.body, {
+        status: response.status,
+        headers: responseHeaders
+      })
+    } catch (error) {
+      log.error('Request failed', { error: String(error) })
+      return new Response('Proxy error', { status: 502 })
+    }
+  })
+  .listen(Bun.env.PORT || 3000)
+
+console.log(`🌳 Linktree proxy running at http://localhost:${app.server?.port}`)

@@ -1,1 +1,1 @@
-web: bun start
+web: bun run src/index.ts

@@ -2,13 +2,17 @@ FROM oven/bun:1.3.6-slim
 
 WORKDIR /app
 
-# Copy only necessary files
-COPY .env ./
+# Copy package files first for better layer caching
+COPY package.json bun.lock* ./
+
+RUN bun install --frozen-lockfile --production
+
+# Copy source files
 COPY src/ ./src/
-COPY package.json bun.lockb ./
 
-RUN bun install
+# Set non-root user for security
+USER bun
 
-EXPOSE 4321
+EXPOSE 3000
 
 CMD ["bun", "run", "src/index.ts"]

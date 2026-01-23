@@ -1,4 +1,4 @@
-# 🍱 Custom Domain for Bento Profile
+# � Custom Domain for Linktree Profile
 
 <div align="center">
     <a href="LICENSE">
@@ -27,7 +27,7 @@
     <a href="https://railway.com/template/6fVSiZ?referralCode=HB99pt">
         <img src="https://railway.com/button.svg" alt="Deploy on Railway" height="30"/>
     </a>
-    <a href="https://app.koyeb.com/deploy?type=git&repository=github.com/iamvikshan/bento&name=bento&service_type=web&builder=dockerfile">
+    <a href="https://app.koyeb.com/deploy?type=git&repository=github.com/iamvikshan/bento&name=linktree-proxy&service_type=web&builder=dockerfile">
         <img src="https://www.koyeb.com/static/images/deploy/button.svg" alt="Deploy to Koyeb" height="30"/>
     </a>
     <a href="https://dashboard.heroku.com/new?template=https%3A%2F%2Fgithub.com%2Fiamvikshan%2Fbento">
@@ -38,9 +38,12 @@
 <br>
 
 <p align="center">
-    <strong>Transform your Bento profile with a personalized domain name!</strong><br>
-    <em>Bento doesn't have an official way to do this, so I thought this might be a good workaround.</em>
+    <strong>Transform your Linktree profile with a personalized domain name!</strong><br>
+    <em>Linktree doesn't offer custom domains on free plans, so this proxy lets you use your own domain.</em>
 </p>
+
+> [!NOTE]
+> 🍱 **Migrated from Bento** - This project originally supported Bento, which was [sunset on February 13th, 2026](https://bento.me/bento-sunset) after being acquired by Linktree. We've migrated to support Linktree profiles instead!
 
 ## 📖 Table of Contents
 
@@ -56,19 +59,20 @@
 ---
 
 > [!TIP]
-> - To make changes, navigate to your official [Bento profile](https://bento.me) and make them there.
+> - To make changes, navigate to your official [Linktree profile](https://linktr.ee/admin) and make them there.
 > - You do not need to re-deploy the app—it will pull those changes before you can even save them! ⚡
 > 
-> In other words, as long as your deployment is smooth, you will never think about it. Just share your custom domain link, but use Bento as normal! **HOW COOL IS THAT!** 🎉
+> In other words, as long as your deployment is smooth, you will never think about it. Just share your custom domain link, but use Linktree as normal! **HOW COOL IS THAT!** 🎉
 
 ## ✨ Features
 
 - 🌐 **Easy custom domain setup**
 - ☁️ **Multiple deployment options**
 - 🔒 **SSL support**
-- ⚡ **PM2 process management**
+- ⚡ **Bun-powered** (fast cold starts, low memory)
 - 🔧 **Apache2/Nginx compatibility**
-- 🔄 **Real-time sync with Bento profile**
+- 🔄 **Real-time sync with Linktree profile**
+- 🐳 **Docker ready**
 
 ## 📋 Prerequisites
 
@@ -76,10 +80,9 @@ Before you begin, ensure you have:
 
 - 💻 A computer/VPS running Windows, Linux, macOS, or Ubuntu 20.04+, or a Docker image
 - 🟨 [Bun](https://bun.sh) v1.1.36 or later
-- 🍱 A [Bento](https://bento.me) account
+- � A [Linktree](https://linktr.ee) account
 - 🌐 A custom domain name
-- ⚙️ [PM2](https://pm2.keymetrics.io/) (optional)
-- 🌐 [Apache2](https://httpd.apache.org/) (required for VPS)
+- 🌐 [Apache2](https://httpd.apache.org/) or [Nginx](https://nginx.org/) (required for VPS reverse proxy)
 - 🔒 [Certbot](https://certbot.eff.org/) (required for SSL on VPS)
 
 > [!TIP] 
@@ -114,9 +117,15 @@ bun i
 2. **Create environment variables:**
 
 ```bash
-# Create .env file
-echo "BENTO_USERNAME=your_username" > .env
+# Create .env file with your Linktree username
+echo "LINKTREE_USERNAME=your_username" > .env
+
+# Optional: set a custom port (default: 3000)
+echo "PORT=3000" >> .env
 ```
+
+> [!NOTE]
+> If `LINKTREE_USERNAME` is not set, it defaults to `vikshan`
 
 3. **Start the application:**
 
@@ -144,7 +153,7 @@ bun test
 1. Create a [Zeabur account](https://zeabur.com?referralCode=vikshan&utm_source=vikshan)
 2. Select "Deploy from GitHub" in your dashboard
 3. Configure environment variables:
-   - `BENTO_USERNAME`: Your Bento username
+   - `LINKTREE_USERNAME`: Your Linktree username
 
 > [!NOTE] 
 > 🗑️ Remove the `.env` file if you're setting variables in Zeabur dashboard to avoid conflicts
@@ -164,9 +173,9 @@ bun test
 2. [Click here](https://railway.com/template/6fVSiZ?referralCode=HB99pt) to deploy using this repo as a template
 3. Railway will automatically detect the project and set up the necessary environment
 4. You'll be prompted to configure environment variables:
-   - `BENTO_USERNAME`: Your Bento username
+   - `LINKTREE_USERNAME`: Your Linktree username
 5. Click "Deploy" to start the deployment process
-6. Once deployed, you'll get a URL to access your Bento profile with a custom domain
+6. Once deployed, you'll get a URL to access your Linktree profile with a custom domain
 
 > [!NOTE] 
 > 💸 Railway provides a free tier with limited resources. For production use, consider upgrading to a paid plan. You can also configure a custom domain with your Railway deployment. Refer to the Railway [documentation](https://docs.railway.com/guides/public-networking#custom-domains) for more details on custom domains and other features.
@@ -188,8 +197,8 @@ bun test
 
 > [!CAUTION] 
 > ⚠️ **Known Issues:**
-> 1. 🖼️ Images may not persist due to caching. If this happens, re-add those images in Bento or use VPS deployment for best results
-> 2. 🗺️ Maps functionality may not work properly
+> 1. 🖼️ Some dynamic content may not work perfectly through the proxy
+> 2. 🔗 External link click tracking may not work (clicks still work, just not tracked)
 
 ## 🤝 Contributing
 

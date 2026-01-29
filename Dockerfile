@@ -1,4 +1,4 @@
-FROM oven/bun:1.3.7-slim
+FROM oven/bun:1.3.8-slim
 
 WORKDIR /app
 

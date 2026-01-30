@@ -1,7 +1,7 @@
 {
   "name": "bento",
   "description": "Use a custom domain for your Bento profile",
-  "repository": "https://github.com/iamvikshan/bento",
+  "repository": "https://github.com/iamvikshan/linktree",
   "logo": "https://lh3.googleusercontent.com/a/ACg8ocJ9C_jc3txFitj02HgiJ6fHyVGpBzXhjGlDvfYomhP8fOc=s512-c",
   "keywords": ["node", "express", "bento", "nodejs"],
   "env": {

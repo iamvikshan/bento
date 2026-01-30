@@ -15,7 +15,7 @@
 #   ./iamvikshan.sh [--repo <repository-url>]
 #
 # Options:
-#   --repo <url>   Override the target repository URL (default: https://github.com/iamvikshan/bento.git)
+#   --repo <url>   Override the target repository URL (default: https://github.com/iamvikshan/linktree.git)
 #
 # Environment variables:
 #   TARGET_REPO    Set this to override the default target repository URL
@@ -48,7 +48,7 @@ MARKER_START="# iamvikshan development setup"
 MARKER_END="# End iamvikshan development setup"
 
 # Default target repository (can be overridden by TARGET_REPO env var or --repo argument)
-DEFAULT_TARGET_REPO="https://github.com/iamvikshan/bento.git"
+DEFAULT_TARGET_REPO="https://github.com/iamvikshan/linktree.git"
 TARGET_REPO="${TARGET_REPO:-$DEFAULT_TARGET_REPO}"
 
 # Initialize optional variables with defaults to satisfy 'set -u'

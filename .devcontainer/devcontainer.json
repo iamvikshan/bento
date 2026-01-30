@@ -10,7 +10,14 @@
   // Configure tool-specific properties.
   "customizations": {
     "vscode": {
-      "extensions": ["dbaeumer.vscode-eslint", "GitHub.copilot", "esbenp.prettier-vscode", "eamodio.gitlens", "oven.bun-vscode"]
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "WakaTime.vscode-wakatime",
+        "GitHub.copilot",
+        "esbenp.prettier-vscode",
+        "eamodio.gitlens",
+        "oven.bun-vscode"
+      ]
     }
   },
 

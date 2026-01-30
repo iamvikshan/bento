@@ -1,12 +1,11 @@
 # [v1.1.0](https://github.com/iamvikshan/bento/compare/v1.0.0...v1.1.0) (2026-01-23)
 
-
-
 ## [1.1.0](https://github.com/iamvikshan/bento/compare/v1.0.0...v1.1.0) (2026-01-23)
 
 ### Features
 
-* add complete setup script for Git and GitHub CLI configuration ([ebc5de5](https://github.com/iamvikshan/bento/commit/ebc5de56f702f116c9552484bd92fcc7e1440cce))
+- add complete setup script for Git and GitHub CLI configuration
+  ([ebc5de5](https://github.com/iamvikshan/bento/commit/ebc5de56f702f116c9552484bd92fcc7e1440cce))
 
 # v1.0.0 (2025-10-17)
 

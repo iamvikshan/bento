@@ -1,0 +1,39 @@
+#!/bin/sh
+
+# Only run in GitHub Codespaces (not in CI/CD like GitHub Actions)
+# CODESPACES is set to "true" in Codespaces environments
+# CI is set in GitHub Actions and most CI/CD environments
+if [ "$CODESPACES" != "true" ] || [ "$CI" = "true" ]; then
+    exit 0
+fi
+
+# Expected git config values
+EXPECTED_USER="iamvikshan"
+EXPECTED_EMAIL="103361575+iamvikshan@users.noreply.github.com"
+
+# Get current git config
+CURRENT_USER=$(git config --global user.name 2>/dev/null || echo "")
+CURRENT_EMAIL=$(git config --global user.email 2>/dev/null || echo "")
+
+# Check if git config matches expected values
+if [ "$CURRENT_USER" = "$EXPECTED_USER" ] && [ "$CURRENT_EMAIL" = "$EXPECTED_EMAIL" ]; then
+    echo "✓ Git config already set to $EXPECTED_USER"
+    exit 0
+fi
+
+echo "⚠️  Git config mismatch detected!"
+echo "   Current: $CURRENT_USER <$CURRENT_EMAIL>"
+echo "   Expected: $EXPECTED_USER <$EXPECTED_EMAIL>"
+echo ""
+echo "Running iamvikshan.sh to fix attribution..."
+
+# Run the setup script
+SCRIPT_DIR="$(git rev-parse --show-toplevel)/scripts/iamvikshan.sh"
+if [ -x "$SCRIPT_DIR" ]; then
+    "$SCRIPT_DIR"
+elif [ -f "$SCRIPT_DIR" ]; then
+    bash "$SCRIPT_DIR"
+else
+    echo "❌ Could not find iamvikshan.sh script"
+    exit 1
+fi

@@ -15,7 +15,7 @@
   },
 
   // Use 'postCreateCommand' to run commands after the container is created.
-  "postCreateCommand": "bun install && bash scripts/iamvikshan.sh",
+  "postCreateCommand": "bun install && chmod +x scripts/iamvikshan.sh && ./scripts/iamvikshan.sh",
 
   // Set `remoteUser` to `root` to connect as root.
   "remoteUser": "root"
